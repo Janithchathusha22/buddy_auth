@@ -7,7 +7,7 @@ import jwt
 from jwt import InvalidTokenError, PyJWKClient
 
 from app.config import MissingConfigError, Settings, get_settings
-from app.models import AppRole, CurrentUser
+from app.models import AppRole, ApprovalStatus, CurrentUser
 from app.supabase_client import (
     SupabaseAuthError,
     SupabaseDataError,
@@ -115,6 +115,10 @@ async def get_current_user(
     if not profile.get("is_active", False):
         raise _forbidden("User account is inactive")
 
+    approval_status = profile.get("approval_status", ApprovalStatus.PENDING.value)
+    if approval_status != ApprovalStatus.APPROVED.value:
+        raise _forbidden(f"User account is not approved: {approval_status}")
+
     if not roles:
         raise _forbidden("User has no application roles")
 
@@ -125,6 +129,7 @@ async def get_current_user(
         avatar_url=profile.get("avatar_url"),
         auth_provider=profile.get("auth_provider"),
         requested_role=profile.get("requested_role"),
+        approval_status=approval_status,
         is_active=profile["is_active"],
         roles=roles,
     )

@@ -60,13 +60,14 @@ Core modules:
 | File | Responsibility |
 | --- | --- |
 | `app/main.py` | FastAPI app creation, CORS, router registration, health route |
-| `app/auth_routes.py` | Auth sync, current-user route, RBAC example routes, admin user/role endpoints |
+| `app/auth_routes.py` | Auth sync, current-user route, RBAC routes, super-admin user approval, LMS endpoints |
 | `app/security.py` | Bearer token extraction, Supabase JWT validation, current-user dependency, role guard dependency |
 | `app/supabase_client.py` | Supabase Auth and PostgREST integration through HTTPX |
 | `app/models.py` | Role enum, role grant rules, API request/response models |
 | `app/config.py` | Environment-driven settings |
-| `docs/auth-rbac.sql` | Production-safe Supabase schema, RLS policies, triggers, and default role setup |
-| `docs/demo-public-role-selection.sql` | Demo-only SQL for allowing the frontend role dropdown to create elevated roles |
+| `docs/full-supabase-setup.sql` | Complete Supabase schema, RLS policies, triggers, owner bootstrap, and LMS tables |
+| `docs/auth-rbac.sql` | Same production SQL kept for compatibility |
+| `docs/lms-learning-schema.sql` | Note that LMS schema is now included in the full setup SQL |
 | `docs/auth-rbac.md` | RBAC design notes |
 | `docs/developer-handoff-prompt.md` | English handoff prompt for another developer |
 
@@ -77,7 +78,7 @@ The application supports three roles:
 | Role | Meaning |
 | --- | --- |
 | `student` | Normal learning user |
-| `admin` | User, course, or content management user |
+| `admin` | Course, lesson, quiz, and student-progress management user |
 | `super_admin` | System owner with full role-management access |
 
 Role hierarchy:
@@ -108,11 +109,12 @@ Tables:
 | `public.profiles` | Application profile data such as name, provider, avatar, requested role, and active status |
 | `public.user_roles` | Many-to-many role assignments for each user |
 
-`docs/auth-rbac.sql` creates:
+`docs/full-supabase-setup.sql` creates:
 
 - `public.app_role` enum
 - `public.profiles`
 - `public.user_roles`
+- LMS tables for courses, course assignments, lessons, quizzes, progress, and quiz attempts
 - indexes
 - RLS policies
 - helper functions for role checks
@@ -122,15 +124,9 @@ Tables:
 
 Production behavior:
 
-- Public signup creates a profile and grants only `student`.
+- Public signup creates a profile, grants only `student`, and keeps the profile `pending`.
 - `requested_role` is stored for review, but it is not trusted as an actual role.
-- Higher roles must be granted by a trusted backend flow.
-
-Demo behavior:
-
-- `docs/demo-public-role-selection.sql` changes the trigger so the frontend selected role becomes the actual role.
-- This is useful for learning and UI testing.
-- Do not use the demo SQL in production.
+- Higher roles and approvals must be granted by a trusted super-admin backend flow.
 
 ## Environment Variables
 
@@ -160,7 +156,7 @@ Security rules:
 ## Setup
 
 1. Install uv.
-2. Configure the Supabase database by running `docs/auth-rbac.sql` in the Supabase SQL Editor.
+2. Configure the Supabase database by running `docs/full-supabase-setup.sql` in the Supabase SQL Editor.
 3. Copy `.env.example` to `.env`.
 4. Fill in the real Supabase values.
 5. Start the API.
@@ -232,7 +228,12 @@ Supabase Google provider:
 
 - Authentication -> Providers -> Google
 - Enable Google
-- Add the real Google OAuth Web Client ID
+- Add the real Google OAuth Web Client ID:
+
+```text
+636044689877-itm8g0g9n0d740ss11pd3p3oom2gc827.apps.googleusercontent.com
+```
+
 - Add the matching Google OAuth Client Secret
 
 Google Cloud OAuth client:
@@ -265,6 +266,8 @@ Common errors:
 | `Error 401: invalid_client` | Google Client ID or Client Secret is wrong or fake | Use a real Google Cloud OAuth Web Client ID and matching secret |
 | `redirect_uri_mismatch` | Callback URL is not registered in Google Cloud | Add the exact Supabase callback URL |
 
+Do not commit the Google OAuth client secret or Supabase service role key.
+
 ## API Endpoints
 
 All protected endpoints require:
@@ -278,12 +281,35 @@ Authorization: Bearer <supabase-access-token>
 | `GET` | `/` | No | Public | Health check |
 | `POST` | `/auth/sync` | Yes | Any authenticated Supabase user | Sync Supabase Auth identity into `profiles`, ensure default `student` role, return current app user |
 | `GET` | `/auth/me` | Yes | Any active user with at least one role | Return current app profile and roles |
+| `GET` | `/dashboard/redirect` | Yes | Approved active user | Return `/super-admin`, `/admin`, or `/student` based on highest role |
 | `GET` | `/student` | Yes | `student`, `admin`, `super_admin` | Student-access example route |
 | `GET` | `/admin` | Yes | `admin`, `super_admin` | Admin-access example route |
 | `GET` | `/super-admin` | Yes | `super_admin` | Super-admin-only example route |
-| `GET` | `/admin/users` | Yes | `admin`, `super_admin` | List Supabase Auth users with app profiles and roles |
-| `GET` | `/admin/users/{user_id}/roles` | Yes | `admin`, `super_admin` | Read roles for a user |
+| `GET` | `/super-admin/users` | Yes | `super_admin` | List Supabase Auth users with app profiles and roles |
+| `GET` | `/admin/users` | Yes | `super_admin` | Compatibility alias for user list |
+| `GET` | `/admin/users/{user_id}/roles` | Yes | `super_admin` | Read roles for a user |
 | `POST` | `/super-admin/users/{user_id}/roles` | Yes | `super_admin` | Grant a role hierarchy to a user |
+| `POST` | `/super-admin/users/{user_id}/approve` | Yes | `super_admin` | Approve a user as `student`, `admin`, or `super_admin` |
+| `POST` | `/super-admin/users/{user_id}/reject` | Yes | `super_admin` | Reject a pending user |
+| `POST` | `/super-admin/users/{user_id}/suspend` | Yes | `super_admin` | Suspend and deactivate a user |
+| `POST` | `/super-admin/users/{user_id}/activate` | Yes | `super_admin` | Activate an approved user |
+| `POST` | `/super-admin/users/{user_id}/deactivate` | Yes | `super_admin` | Deactivate and suspend a user |
+| `DELETE` | `/super-admin/users/{user_id}` | Yes | `super_admin` | Delete a Supabase Auth user except self or bootstrap owner |
+| `GET` | `/courses` | Yes | `student`, `admin`, `super_admin` | Students see assigned courses; admins see all courses |
+| `POST` | `/courses` | Yes | `admin`, `super_admin` | Create course |
+| `PATCH` | `/courses/{course_id}` | Yes | `admin`, `super_admin` | Edit course |
+| `DELETE` | `/courses/{course_id}` | Yes | `admin`, `super_admin` | Delete course |
+| `POST` | `/courses/{course_id}/students` | Yes | `admin`, `super_admin` | Assign student to course |
+| `GET` | `/courses/{course_id}/lessons` | Yes | `student`, `admin`, `super_admin` | Students see published lessons only |
+| `POST` | `/courses/{course_id}/lessons` | Yes | `admin`, `super_admin` | Create lesson |
+| `PATCH` | `/lessons/{lesson_id}` | Yes | `admin`, `super_admin` | Edit lesson |
+| `DELETE` | `/lessons/{lesson_id}` | Yes | `admin`, `super_admin` | Delete lesson |
+| `POST` | `/lessons/{lesson_id}/quizzes` | Yes | `admin`, `super_admin` | Create quiz |
+| `PATCH` | `/quizzes/{quiz_id}` | Yes | `admin`, `super_admin` | Edit quiz |
+| `DELETE` | `/quizzes/{quiz_id}` | Yes | `admin`, `super_admin` | Delete quiz |
+| `PUT` | `/lessons/{lesson_id}/progress` | Yes | `student`, `admin`, `super_admin` | Save own lesson progress |
+| `POST` | `/quizzes/{quiz_id}/attempts` | Yes | `student`, `admin`, `super_admin` | Submit own quiz attempt |
+| `GET` | `/admin/student-progress` | Yes | `admin`, `super_admin` | View student progress |
 
 ## Response Models
 
@@ -297,6 +323,7 @@ Authorization: Bearer <supabase-access-token>
   "avatar_url": "https://example.com/avatar.png",
   "auth_provider": "google",
   "requested_role": "admin",
+  "approval_status": "approved",
   "is_active": true,
   "roles": ["student", "admin"]
 }
@@ -317,6 +344,24 @@ Role grant behavior:
 | `student` | `student` |
 | `admin` | `student`, `admin` |
 | `super_admin` | `student`, `admin`, `super_admin` |
+
+Approval behavior:
+
+| User | Signup Result | App Access |
+| --- | --- | --- |
+| Normal student | `approval_status = pending`, role `student` | Blocked until approved |
+| Admin request | `approval_status = pending`, role `student`, `requested_role = admin` | Blocked until approved and granted `admin` |
+| `danu@absolx.com` | `approval_status = approved`, roles `student`, `admin`, `super_admin` | Full access after Supabase Auth account exists |
+
+Approve a user from Supabase SQL Editor:
+
+```sql
+select public.approve_user_by_email('student@example.com', 'student');
+select public.approve_user_by_email('admin@example.com', 'admin');
+select public.approve_user_by_email('owner@example.com', 'super_admin');
+```
+
+The LMS database tables and RLS policies are included in `docs/full-supabase-setup.sql`.
 
 ## Development Checks
 
@@ -341,8 +386,7 @@ git status --short
 ## Production Notes
 
 - Keep role grants server-side.
-- Use the production-safe `docs/auth-rbac.sql`.
-- Do not run `docs/demo-public-role-selection.sql` in production.
+- Use the production-safe `docs/full-supabase-setup.sql`.
 - Keep the service role key only on the backend.
 - Use HTTPS outside local development.
 - Restrict `CORS_ORIGINS` to real frontend domains.

@@ -11,12 +11,16 @@ The security decision lives in two places:
 ## Tables
 
 - `auth.users`: Supabase login identity.
-- `profiles`: application profile data such as `full_name` and `is_active`.
+- `profiles`: application profile data such as `full_name`, `approval_status`, and `is_active`.
 - `user_roles`: many-to-many role assignment for `student`, `admin`, and `super_admin`.
 
 Normal signup receives `student`.
 Admin users should have `student + admin`.
 The system owner should have `student + admin + super_admin`.
+
+New student/admin signups are `pending` until approved. The default system owner
+email is `danu@absolx.com`; once that Supabase Auth user exists, the SQL seeds
+`approved + student + admin + super_admin`.
 
 ## Access Matrix
 
@@ -49,11 +53,14 @@ Protected endpoints are implemented with FastAPI dependencies:
 - `GET /student`
 - `GET /admin`
 - `GET /super-admin`
+- `GET /super-admin/users`
 - `GET /admin/users/{user_id}/roles`
+- `POST /super-admin/users/{user_id}/approve`
 - `POST /super-admin/users/{user_id}/roles`
 
 The API verifies the Supabase access token, loads the user's profile and roles
-from Supabase, checks `is_active`, and then applies route-level RBAC.
+from Supabase, checks `approval_status = approved` and `is_active`, and then
+applies route-level RBAC.
 
 `POST /auth/sync` is used after email/password login or Google login. It verifies
 the Supabase token, copies basic Google/Supabase Auth identity data into

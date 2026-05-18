@@ -1,0 +1,9 @@
+-- Buddy LMS schema is now included in docs/full-supabase-setup.sql.
+--
+-- Use only this file in Supabase SQL Editor:
+--   docs/full-supabase-setup.sql
+--
+-- The project intentionally uses only three roles:
+--   student, admin, super_admin
+--
+-- Admin is the course/content/progress manager.
