@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buddy Auth Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #eef6f3;
+      color: #10201c;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1180px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 22px 0 38px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 7px 0 0;
+      color: #61736e;
+      line-height: 1.45;
+    }
+
+    .session-pill {
+      min-width: 128px;
+      padding: 10px 13px;
+      border: 1px solid #d3dfdb;
+      border-radius: 8px;
+      background: #fff;
+      color: #40524d;
+      font-weight: 800;
+      text-align: center;
+      word-break: break-word;
+    }
+
+    .nav {
+      display: flex;
+      gap: 8px;
+      padding: 7px;
+      border: 1px solid #d7e3df;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(16, 32, 28, 0.07);
+      overflow-x: auto;
+    }
+
+    .nav button {
+      border: 0;
+      border-radius: 7px;
+      padding: 10px 14px;
+      color: #40524d;
+      background: transparent;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .nav button.active {
+      background: #0f766e;
+      color: #fff;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #d8e4e0;
+      border-radius: 8px;
+      box-shadow: 0 18px 45px rgba(16, 32, 28, 0.08);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid #e0ebe7;
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .panel-header p {
+      margin: 6px 0 0;
+      color: #61736e;
+      line-height: 1.45;
+    }
+
+    .panel-body {
+      padding: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 13px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #40524d;
+    }
+
+    input,
+    select {
+      width: 100%;
+      margin-top: 7px;
+      padding: 11px 12px;
+      border: 1px solid #cfdbd7;
+      border-radius: 8px;
+      background: #fff;
+      color: #10201c;
+      font-weight: 700;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button.action {
+      min-height: 45px;
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 12px;
+      color: #fff;
+      background: #0f766e;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    button.action:hover {
+      filter: brightness(0.96);
+    }
+
+    button.action:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .blue {
+      background: #2563eb !important;
+    }
+
+    .gray {
+      background: #dfe9e6 !important;
+      color: #10201c !important;
+    }
+
+    .red {
+      background: #b42318 !important;
+    }
+
+    .white {
+      background: #fff !important;
+      color: #10201c !important;
+      border: 1px solid #cfdbd7 !important;
+    }
+
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    .hint {
+      margin-top: 14px;
+      padding: 12px;
+      border-left: 4px solid #0f766e;
+      background: #eefaf6;
+      color: #34514a;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status {
+      margin: 0;
+      padding: 14px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e5eef8;
+      min-height: 160px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: auto;
+    }
+
+    .tab {
+      display: none;
+    }
+
+    .tab.active {
+      display: block;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stat {
+      border: 1px solid #d8e4e0;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fcfb;
+    }
+
+    .stat span {
+      display: block;
+      color: #61736e;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .toolbar input {
+      margin-top: 0;
+      max-width: 320px;
+    }
+
+    .table-wrap {
+      border: 1px solid #d8e4e0;
+      border-radius: 8px;
+      overflow: auto;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 820px;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #e5eeeb;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f6fbf9;
+      color: #40524d;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .email {
+      font-weight: 900;
+    }
+
+    .muted {
+      color: #667772;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #e8f2ef;
+      color: #284a43;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .badge.pending {
+      background: #fff4d8;
+      color: #775a00;
+    }
+
+    .badge.approved {
+      background: #def7ec;
+      color: #0f5132;
+    }
+
+    .badge.suspended,
+    .badge.rejected {
+      background: #fde7e5;
+      color: #8a1f17;
+    }
+
+    .row-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      min-width: 180px;
+    }
+
+    .row-actions select {
+      margin-top: 0;
+    }
+
+    .row-actions button {
+      min-height: 38px;
+      font-size: 13px;
+    }
+
+    .page-card {
+      border: 1px solid #d8e4e0;
+      border-radius: 8px;
+      padding: 16px;
+      background: #f8fcfb;
+    }
+
+    .page-card h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .page-card p {
+      margin: 0 0 14px;
+      color: #61736e;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        width: min(100vw - 18px, 1180px);
+        padding-top: 12px;
+      }
+
+      .topbar,
+      .toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .button-grid,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Buddy Auth Dashboard</h1>
+        <p class="subtitle">Signup, login, role checks, and super admin approvals.</p>
+      </div>
+      <div id="sessionPill" class="session-pill">No session</div>
+    </header>
+
+    <nav class="nav" aria-label="Dashboard sections">
+      <button class="active" type="button" data-tab="auth">Auth</button>
+      <button type="button" data-tab="student">Student</button>
+      <button type="button" data-tab="admin">Admin</button>
+      <button type="button" data-tab="superAdmin">Super Admin</button>
+    </nav>
+
+    <section class="layout">
+      <aside class="panel">
+        <div class="panel-header">
+          <h2>Connection</h2>
+          <p>Config values load from <strong>config.js</strong>. Do not put service_role in frontend.</p>
+        </div>
+        <div class="panel-body">
+          <label>
+            Supabase URL
+            <input id="supabaseUrl" disabled />
+          </label>
+          <label>
+            Supabase anon key
+            <input id="supabaseAnonKey" disabled />
+          </label>
+          <label>
+            Backend URL
+            <input id="backendUrl" disabled />
+          </label>
+          <div class="hint">
+            Super admin approval uses backend endpoints. Backend must be running on port 8000.
+          </div>
+          <pre id="status" class="status" style="margin-top: 14px;">Ready.</pre>
+        </div>
+      </aside>
+
+      <section class="panel">
+        <div id="auth" class="tab active">
+          <div class="panel-header">
+            <h2>Signup and Login</h2>
+            <p>Students can request access. Super admin approves the real role.</p>
+          </div>
+          <div class="panel-body">
+            <label>
+              Full name
+              <input id="fullName" placeholder="Saman Perera" autocomplete="name" />
+            </label>
+
+            <label>
+              Email
+              <input id="email" type="email" placeholder="saman@example.com" autocomplete="email" />
+            </label>
+
+            <label>
+              Password
+              <input id="password" type="password" placeholder="minimum 6 characters" autocomplete="current-password" />
+            </label>
+
+            <label>
+              Requested role
+              <select id="role">
+                <option value="student">student</option>
+                <option value="admin">admin request</option>
+                <option value="super_admin">super_admin request</option>
+              </select>
+            </label>
+
+            <div class="button-grid">
+              <button id="signupBtn" class="action" type="button">Signup</button>
+              <button id="loginBtn" class="action blue" type="button">Login</button>
+              <button id="googleBtn" class="action white wide" type="button">Login with Google</button>
+              <button id="checkBtn" class="action gray" type="button">Check backend</button>
+              <button id="logoutBtn" class="action red" type="button">Logout</button>
+            </div>
+
+            <div class="hint">
+              Dropdown value is only requested_role. The real access role comes from public.user_roles after super admin approval.
+            </div>
+          </div>
+        </div>
+
+        <div id="student" class="tab">
+          <div class="panel-header">
+            <h2>Student Area</h2>
+            <p>Approved student, admin, and super admin users should pass this route.</p>
+          </div>
+          <div class="panel-body">
+            <div class="page-card">
+              <h3>Student page check</h3>
+              <p>This calls <strong>GET /student</strong> with the current Supabase token.</p>
+              <button id="studentCheckBtn" class="action" type="button">Open student page</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin" class="tab">
+          <div class="panel-header">
+            <h2>Admin Area</h2>
+            <p>Admin and super admin users can manage courses, lessons, quizzes, and progress.</p>
+          </div>
+          <div class="panel-body">
+            <div class="button-grid">
+              <button id="adminCheckBtn" class="action" type="button">Open admin page</button>
+              <button id="adminProgressBtn" class="action blue" type="button">Load progress</button>
+            </div>
+
+            <div class="page-card" style="margin-top: 14px;">
+              <h3>Courses</h3>
+              <label>
+                Course ID
+                <input id="courseId" placeholder="for edit/delete/lessons" />
+              </label>
+              <label>
+                Course title
+                <input id="courseTitle" placeholder="Python Basics" />
+              </label>
+              <label>
+                Course description
+                <input id="courseDescription" placeholder="Short description" />
+              </label>
+              <label>
+                Course status
+                <select id="courseStatus">
+                  <option value="draft">draft</option>
+                  <option value="published">published</option>
+                  <option value="archived">archived</option>
+                </select>
+              </label>
+              <div class="button-grid">
+                <button id="loadCoursesBtn" class="action gray" type="button">Load courses</button>
+                <button id="createCourseBtn" class="action" type="button">Add course</button>
+                <button id="updateCourseBtn" class="action blue" type="button">Edit course</button>
+                <button id="deleteCourseBtn" class="action red" type="button">Delete course</button>
+              </div>
+            </div>
+
+            <div class="page-card" style="margin-top: 14px;">
+              <h3>Lessons</h3>
+              <label>
+                Lesson ID
+                <input id="lessonId" placeholder="for edit/delete/quizzes" />
+              </label>
+              <label>
+                Lesson title
+                <input id="lessonTitle" placeholder="Lesson 1" />
+              </label>
+              <label>
+                Lesson content
+                <input id="lessonContent" placeholder="Lesson notes" />
+              </label>
+              <label>
+                Sort order
+                <input id="lessonSortOrder" type="number" value="0" />
+              </label>
+              <label>
+                Published
+                <select id="lessonPublished">
+                  <option value="false">false</option>
+                  <option value="true">true</option>
+                </select>
+              </label>
+              <div class="button-grid">
+                <button id="loadLessonsBtn" class="action gray" type="button">Load lessons</button>
+                <button id="createLessonBtn" class="action" type="button">Add lesson</button>
+                <button id="updateLessonBtn" class="action blue" type="button">Edit lesson</button>
+                <button id="deleteLessonBtn" class="action red" type="button">Delete lesson</button>
+              </div>
+            </div>
+
+            <div class="page-card" style="margin-top: 14px;">
+              <h3>Quizzes</h3>
+              <label>
+                Quiz ID
+                <input id="quizId" placeholder="for edit/delete" />
+              </label>
+              <label>
+                Quiz title
+                <input id="quizTitle" placeholder="Quiz 1" />
+              </label>
+              <label>
+                Quiz instructions
+                <input id="quizInstructions" placeholder="Answer all questions" />
+              </label>
+              <label>
+                Max score
+                <input id="quizMaxScore" type="number" value="100" />
+              </label>
+              <div class="button-grid">
+                <button id="loadQuizzesBtn" class="action gray" type="button">Load quizzes</button>
+                <button id="createQuizBtn" class="action" type="button">Add quiz</button>
+                <button id="updateQuizBtn" class="action blue" type="button">Edit quiz</button>
+                <button id="deleteQuizBtn" class="action red" type="button">Delete quiz</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="superAdmin" class="tab">
+          <div class="panel-header">
+            <h2>Super Admin Approval</h2>
+            <p>Login as super admin, load users, select role, then approve.</p>
+          </div>
+          <div class="panel-body">
+            <div class="stats">
+              <div class="stat">
+                <span>Total</span>
+                <strong id="statTotal">0</strong>
+              </div>
+              <div class="stat">
+                <span>Pending</span>
+                <strong id="statPending">0</strong>
+              </div>
+              <div class="stat">
+                <span>Approved</span>
+                <strong id="statApproved">0</strong>
+              </div>
+              <div class="stat">
+                <span>Inactive</span>
+                <strong id="statInactive">0</strong>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <button id="loadSuperUsersBtn" class="action" type="button">Load users</button>
+              <input id="userSearch" type="search" placeholder="Search email or name" />
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Status</th>
+                    <th>Requested</th>
+                    <th>Real roles</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                  <tr>
+                    <td colspan="5" class="muted">Login as super admin and click Load users.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+    import { BACKEND_URL, SUPABASE_ANON_KEY, SUPABASE_URL } from "./config.js";
+
+    const pendingGoogleRoleKey = "buddy-pending-google-role";
+    const BOOTSTRAP_OWNER_EMAIL = "danu@absolx.com";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let session = null;
+    let users = [];
+
+    const fields = {
+      fullName: document.getElementById("fullName"),
+      email: document.getElementById("email"),
+      password: document.getElementById("password"),
+      role: document.getElementById("role"),
+      status: document.getElementById("status"),
+      sessionPill: document.getElementById("sessionPill"),
+      userSearch: document.getElementById("userSearch"),
+      usersTableBody: document.getElementById("usersTableBody"),
+      statTotal: document.getElementById("statTotal"),
+      statPending: document.getElementById("statPending"),
+      statApproved: document.getElementById("statApproved"),
+      statInactive: document.getElementById("statInactive"),
+      courseId: document.getElementById("courseId"),
+      courseTitle: document.getElementById("courseTitle"),
+      courseDescription: document.getElementById("courseDescription"),
+      courseStatus: document.getElementById("courseStatus"),
+      lessonId: document.getElementById("lessonId"),
+      lessonTitle: document.getElementById("lessonTitle"),
+      lessonContent: document.getElementById("lessonContent"),
+      lessonSortOrder: document.getElementById("lessonSortOrder"),
+      lessonPublished: document.getElementById("lessonPublished"),
+      quizId: document.getElementById("quizId"),
+      quizTitle: document.getElementById("quizTitle"),
+      quizInstructions: document.getElementById("quizInstructions"),
+      quizMaxScore: document.getElementById("quizMaxScore"),
+    };
+
+    document.getElementById("supabaseUrl").value = SUPABASE_URL;
+    document.getElementById("supabaseAnonKey").value = SUPABASE_ANON_KEY;
+    document.getElementById("backendUrl").value = BACKEND_URL;
+
+    function write(title, data) {
+      const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+      fields.status.textContent = `${title}\n\n${text}`;
+    }
+
+    function setSession(nextSession) {
+      session = nextSession;
+      if (session?.user?.email) {
+        fields.sessionPill.textContent = session.user.email;
+      } else {
+        fields.sessionPill.textContent = "No session";
+      }
+    }
+
+    function clearPassword() {
+      fields.password.value = "";
+    }
+
+    function clearSignupFields() {
+      fields.fullName.value = "";
+      fields.email.value = "";
+      fields.password.value = "";
+      fields.role.value = "student";
+    }
+
+    function getForm() {
+      return {
+        fullName: fields.fullName.value.trim(),
+        email: fields.email.value.trim(),
+        password: fields.password.value,
+        requestedRole: fields.role.value,
+      };
+    }
+
+    function userInfo(user) {
+      return {
+        email: user?.email,
+        user_id: user?.id,
+        requested_role: user?.user_metadata?.requested_role || "not selected",
+        real_role_source: "Backend reads actual role from public.user_roles",
+      };
+    }
+
+    async function callBackend(path, method = "GET", body = undefined) {
+      if (!session?.access_token) {
+        return {
+          ok: false,
+          status: 0,
+          body: "No Supabase session token",
+        };
+      }
+
+      const headers = {
+        Authorization: `Bearer ${session.access_token}`,
+      };
+
+      if (body !== undefined) {
+        headers["Content-Type"] = "application/json";
+      }
+
+      const response = await fetch(`${BACKEND_URL}${path}`, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      const responseBody = await response.json().catch(() => null);
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        body: responseBody,
+      };
+    }
+
+    async function syncBackend(label = "Backend sync") {
+      const result = await callBackend("/auth/sync", "POST");
+      write(`${label} -> ${result.status}`, {
+        actual_db_roles: result.body?.roles,
+        requested_role: result.body?.requested_role,
+        approval_status: result.body?.approval_status,
+        is_active: result.body?.is_active,
+        can_enter_app: result.ok && result.body?.approval_status === "approved" && result.body?.is_active,
+        google_profile: {
+          email: result.body?.email,
+          full_name: result.body?.full_name,
+          avatar_url: result.body?.avatar_url,
+          provider: result.body?.auth_provider,
+        },
+        raw: result.body,
+      });
+
+      return result;
+    }
+
+    async function restoreSession() {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+
+      const pendingRole = localStorage.getItem(pendingGoogleRoleKey);
+      if (session?.user && pendingRole) {
+        await supabase.auth.updateUser({
+          data: {
+            requested_role: pendingRole,
+          },
+        });
+        localStorage.removeItem(pendingGoogleRoleKey);
+      }
+
+      if (session?.user) {
+        write("Session restored", userInfo(session.user));
+        await syncBackend("Backend sync after session restore");
+      }
+    }
+
+    async function signup() {
+      write("Signup running", "Please wait...");
+      const form = getForm();
+
+      if (!form.email || !form.password) {
+        write("Signup blocked", "Email and password required.");
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            full_name: form.fullName,
+            requested_role: form.requestedRole,
+          },
+        },
+      });
+
+      clearPassword();
+
+      if (error) {
+        write("Signup failed", error.message);
+        return;
+      }
+
+      setSession(data.session);
+      clearSignupFields();
+
+      write("Signup success", {
+        ...userInfo(data.user),
+        requested_role: form.requestedRole,
+        next_step: "Super admin must approve this user before app access.",
+      });
+
+      if (session?.access_token) {
+        await syncBackend("Backend sync after signup");
+      }
+    }
+
+    async function login() {
+      write("Login running", "Please wait...");
+      const form = getForm();
+
+      if (!form.email || !form.password) {
+        write("Login blocked", "Email and password required.");
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+
+      clearPassword();
+
+      if (error) {
+        write("Login failed", `${error.message}\n\nUse the same email/password used during signup. If email confirmation is ON, confirm email first.`);
+        return;
+      }
+
+      setSession(data.session);
+      fields.email.value = "";
+
+      write("Login success", userInfo(data.user));
+      await syncBackend("Backend sync after login");
+    }
+
+    async function loginWithGoogle() {
+      localStorage.setItem(pendingGoogleRoleKey, fields.role.value);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+
+      if (error) {
+        write("Google login failed", error.message);
+      }
+    }
+
+    async function checkBackend() {
+      write("Backend check running", "Please wait...");
+      const result = await callBackend("/auth/me");
+      write(`Backend /auth/me -> ${result.status}`, {
+        actual_db_roles: result.body?.roles,
+        requested_role: result.body?.requested_role,
+        approval_status: result.body?.approval_status,
+        is_active: result.body?.is_active,
+        can_enter_app: result.ok && result.body?.approval_status === "approved" && result.body?.is_active,
+        raw: result.body,
+      });
+    }
+
+    async function logout() {
+      await supabase.auth.signOut();
+      setSession(null);
+      clearSignupFields();
+      users = [];
+      renderUsers();
+      write("Logout success", "Session cleared.");
+    }
+
+    async function checkRoute(path, label) {
+      write(`${label} running`, "Please wait...");
+      const result = await callBackend(path);
+      write(`${label} -> ${result.status}`, result.body);
+    }
+
+    function requireInput(input, label) {
+      const value = input.value.trim();
+      if (!value) {
+        write(`${label} required`, `Please enter ${label}.`);
+        throw new Error(`${label} required`);
+      }
+      return value;
+    }
+
+    async function apiAction(label, path, method = "GET", body = undefined) {
+      write(`${label} running`, "Please wait...");
+      const result = await callBackend(path, method, body);
+      write(`${label} -> ${result.status}`, result.body);
+      return result;
+    }
+
+    function coursePayload() {
+      return {
+        title: fields.courseTitle.value.trim(),
+        description: fields.courseDescription.value.trim() || null,
+        status: fields.courseStatus.value,
+      };
+    }
+
+    function lessonPayload() {
+      return {
+        title: fields.lessonTitle.value.trim(),
+        content: fields.lessonContent.value.trim() || null,
+        sort_order: Number(fields.lessonSortOrder.value || 0),
+        is_published: fields.lessonPublished.value === "true",
+      };
+    }
+
+    function quizPayload() {
+      return {
+        title: fields.quizTitle.value.trim(),
+        instructions: fields.quizInstructions.value.trim() || null,
+        max_score: Number(fields.quizMaxScore.value || 100),
+      };
+    }
+
+    async function loadCourses() {
+      await apiAction("Load courses", "/courses");
+    }
+
+    async function createCourseFromForm() {
+      requireInput(fields.courseTitle, "Course title");
+      await apiAction("Add course", "/courses", "POST", coursePayload());
+    }
+
+    async function updateCourseFromForm() {
+      const courseId = requireInput(fields.courseId, "Course ID");
+      await apiAction("Edit course", `/courses/${courseId}`, "PATCH", coursePayload());
+    }
+
+    async function deleteCourseFromForm() {
+      const courseId = requireInput(fields.courseId, "Course ID");
+      await apiAction("Delete course", `/courses/${courseId}`, "DELETE");
+    }
+
+    async function loadLessons() {
+      const courseId = requireInput(fields.courseId, "Course ID");
+      await apiAction("Load lessons", `/courses/${courseId}/lessons`);
+    }
+
+    async function createLessonFromForm() {
+      const courseId = requireInput(fields.courseId, "Course ID");
+      requireInput(fields.lessonTitle, "Lesson title");
+      await apiAction("Add lesson", `/courses/${courseId}/lessons`, "POST", lessonPayload());
+    }
+
+    async function updateLessonFromForm() {
+      const lessonId = requireInput(fields.lessonId, "Lesson ID");
+      await apiAction("Edit lesson", `/lessons/${lessonId}`, "PATCH", lessonPayload());
+    }
+
+    async function deleteLessonFromForm() {
+      const lessonId = requireInput(fields.lessonId, "Lesson ID");
+      await apiAction("Delete lesson", `/lessons/${lessonId}`, "DELETE");
+    }
+
+    async function loadQuizzes() {
+      const lessonId = requireInput(fields.lessonId, "Lesson ID");
+      await apiAction("Load quizzes", `/lessons/${lessonId}/quizzes`);
+    }
+
+    async function createQuizFromForm() {
+      const lessonId = requireInput(fields.lessonId, "Lesson ID");
+      requireInput(fields.quizTitle, "Quiz title");
+      await apiAction("Add quiz", `/lessons/${lessonId}/quizzes`, "POST", quizPayload());
+    }
+
+    async function updateQuizFromForm() {
+      const quizId = requireInput(fields.quizId, "Quiz ID");
+      await apiAction("Edit quiz", `/quizzes/${quizId}`, "PATCH", quizPayload());
+    }
+
+    async function deleteQuizFromForm() {
+      const quizId = requireInput(fields.quizId, "Quiz ID");
+      await apiAction("Delete quiz", `/quizzes/${quizId}`, "DELETE");
+    }
+
+    async function loadUsers() {
+      write("Loading users", "Please wait...");
+      const result = await callBackend("/super-admin/users");
+      if (!result.ok) {
+        users = [];
+        renderUsers();
+        write(`Load users failed -> ${result.status}`, result.body);
+        return;
+      }
+
+      users = result.body?.users || [];
+      renderUsers();
+      write("Users loaded", {
+        total: users.length,
+        pending: users.filter((user) => user.approval_status === "pending").length,
+        approved: users.filter((user) => user.approval_status === "approved").length,
+      });
+    }
+
+    function roleOptions(selectedRole) {
+      const roles = ["student", "admin", "super_admin"];
+      return roles
+        .map((role) => `<option value="${role}" ${role === selectedRole ? "selected" : ""}>${role}</option>`)
+        .join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderRoleBadges(roles) {
+      if (!roles?.length) {
+        return '<span class="muted">No roles</span>';
+      }
+
+      return `<div class="badges">${roles
+        .map((role) => `<span class="badge">${escapeHtml(role)}</span>`)
+        .join("")}</div>`;
+    }
+
+    function updateStats(filteredUsers) {
+      fields.statTotal.textContent = String(filteredUsers.length);
+      fields.statPending.textContent = String(filteredUsers.filter((user) => user.approval_status === "pending").length);
+      fields.statApproved.textContent = String(filteredUsers.filter((user) => user.approval_status === "approved").length);
+      fields.statInactive.textContent = String(filteredUsers.filter((user) => !user.is_active).length);
+    }
+
+    function renderUsers() {
+      const query = fields.userSearch.value.trim().toLowerCase();
+      const filteredUsers = users.filter((user) => {
+        const text = `${user.email || ""} ${user.full_name || ""}`.toLowerCase();
+        return text.includes(query);
+      });
+
+      updateStats(filteredUsers);
+
+      if (!filteredUsers.length) {
+        fields.usersTableBody.innerHTML = '<tr><td colspan="5" class="muted">No users found.</td></tr>';
+        return;
+      }
+
+      fields.usersTableBody.innerHTML = filteredUsers
+        .map((user) => {
+          const requestedRole = user.requested_role || "student";
+          const statusClass = escapeHtml(user.approval_status || "pending");
+          const activeText = user.is_active ? "Active" : "Inactive";
+          const isSelf = session?.user?.id === user.id;
+          const isOwner = (user.email || "").trim().toLowerCase() === BOOTSTRAP_OWNER_EMAIL;
+          const protectedAccount = isSelf || isOwner;
+          const disabledDanger = protectedAccount ? "disabled" : "";
+          const protectedLabel = isOwner ? "Protected owner" : "Current login";
+          return `
+            <tr>
+              <td>
+                <div class="email">${escapeHtml(user.email || "No email")}</div>
+                <div class="muted">${escapeHtml(user.full_name || "No name")}</div>
+                <div class="muted">${escapeHtml(user.id)}</div>
+              </td>
+              <td>
+                <div class="badges">
+                  <span class="badge ${statusClass}">${escapeHtml(user.approval_status)}</span>
+                  <span class="badge">${escapeHtml(activeText)}</span>
+                </div>
+              </td>
+              <td>${escapeHtml(requestedRole)}</td>
+              <td>${renderRoleBadges(user.roles)}</td>
+              <td>
+                <div class="row-actions">
+                  <select data-role-select="${escapeHtml(user.id)}">
+                    ${roleOptions(requestedRole)}
+                  </select>
+                  <button class="action" type="button" data-approve="${escapeHtml(user.id)}">Approve role</button>
+                  <button class="action blue" type="button" data-make-super-admin="${escapeHtml(user.id)}">Make super admin</button>
+                  <button class="action gray" type="button" data-reject="${escapeHtml(user.id)}" ${disabledDanger}>Reject</button>
+                  <button class="action ${user.is_active ? "red" : "blue"}" type="button" data-toggle-active="${escapeHtml(user.id)}" ${disabledDanger}>
+                    ${protectedAccount ? protectedLabel : user.is_active ? "Deactivate" : "Activate"}
+                  </button>
+                  <button class="action red" type="button" data-delete-user="${escapeHtml(user.id)}" ${disabledDanger}>Delete user</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    async function approveUser(userId) {
+      const roleSelect = document.querySelector(`[data-role-select="${CSS.escape(userId)}"]`);
+      const role = roleSelect?.value || "student";
+
+      write("Approving user", { user_id: userId, role });
+      const result = await callBackend(`/super-admin/users/${userId}/approve`, "POST", { role });
+      if (!result.ok) {
+        write(`Approve failed -> ${result.status}`, result.body);
+        return;
+      }
+
+      write("Approve success", result.body);
+      await loadUsers();
+    }
+
+    async function makeSuperAdmin(userId) {
+      const user = users.find((item) => item.id === userId);
+      const label = user?.email || userId;
+      if (!window.confirm(`Make ${label} a super admin?`)) {
+        return;
+      }
+
+      write("Making super admin", { user_id: userId, role: "super_admin" });
+      const result = await callBackend(`/super-admin/users/${userId}/approve`, "POST", { role: "super_admin" });
+      if (!result.ok) {
+        write(`Make super admin failed -> ${result.status}`, result.body);
+        return;
+      }
+
+      write("Make super admin success", result.body);
+      await loadUsers();
+    }
+
+    async function toggleActiveUser(userId) {
+      const user = users.find((item) => item.id === userId);
+      const action = user?.is_active ? "deactivate" : "activate";
+
+      write(`${action} user`, { user_id: userId });
+      const result = await callBackend(`/super-admin/users/${userId}/${action}`, "POST");
+      if (!result.ok) {
+        write(`${action} failed -> ${result.status}`, result.body);
+        return;
+      }
+
+      write(`${action} success`, result.body);
+      await loadUsers();
+    }
+
+    async function rejectUser(userId) {
+      const user = users.find((item) => item.id === userId);
+      const label = user?.email || userId;
+      if (!window.confirm(`Reject ${label}?`)) {
+        return;
+      }
+
+      write("Rejecting user", { user_id: userId });
+      const result = await callBackend(`/super-admin/users/${userId}/reject`, "POST");
+      if (!result.ok) {
+        write(`Reject failed -> ${result.status}`, result.body);
+        return;
+      }
+
+      write("Reject success", result.body);
+      await loadUsers();
+    }
+
+    async function deleteUser(userId) {
+      const user = users.find((item) => item.id === userId);
+      const label = user?.email || userId;
+      if (!window.confirm(`Delete ${label} from Supabase Auth? This cannot be undone.`)) {
+        return;
+      }
+
+      write("Deleting user", { user_id: userId });
+      const result = await callBackend(`/super-admin/users/${userId}`, "DELETE");
+      if (!result.ok) {
+        write(`Delete failed -> ${result.status}`, result.body);
+        return;
+      }
+
+      write("Delete success", result.body);
+      await loadUsers();
+    }
+
+    document.querySelectorAll("[data-tab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-tab]").forEach((navButton) => navButton.classList.remove("active"));
+        document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+        button.classList.add("active");
+        document.getElementById(button.dataset.tab).classList.add("active");
+      });
+    });
+
+    document.getElementById("signupBtn").addEventListener("click", signup);
+    document.getElementById("loginBtn").addEventListener("click", login);
+    document.getElementById("googleBtn").addEventListener("click", loginWithGoogle);
+    document.getElementById("checkBtn").addEventListener("click", checkBackend);
+    document.getElementById("logoutBtn").addEventListener("click", logout);
+    document.getElementById("studentCheckBtn").addEventListener("click", () => checkRoute("/student", "Student route"));
+    document.getElementById("adminCheckBtn").addEventListener("click", () => checkRoute("/admin", "Admin route"));
+    document.getElementById("adminProgressBtn").addEventListener("click", () => checkRoute("/admin/student-progress", "Student progress"));
+    document.getElementById("loadCoursesBtn").addEventListener("click", loadCourses);
+    document.getElementById("createCourseBtn").addEventListener("click", createCourseFromForm);
+    document.getElementById("updateCourseBtn").addEventListener("click", updateCourseFromForm);
+    document.getElementById("deleteCourseBtn").addEventListener("click", deleteCourseFromForm);
+    document.getElementById("loadLessonsBtn").addEventListener("click", loadLessons);
+    document.getElementById("createLessonBtn").addEventListener("click", createLessonFromForm);
+    document.getElementById("updateLessonBtn").addEventListener("click", updateLessonFromForm);
+    document.getElementById("deleteLessonBtn").addEventListener("click", deleteLessonFromForm);
+    document.getElementById("loadQuizzesBtn").addEventListener("click", loadQuizzes);
+    document.getElementById("createQuizBtn").addEventListener("click", createQuizFromForm);
+    document.getElementById("updateQuizBtn").addEventListener("click", updateQuizFromForm);
+    document.getElementById("deleteQuizBtn").addEventListener("click", deleteQuizFromForm);
+    document.getElementById("loadSuperUsersBtn").addEventListener("click", loadUsers);
+    fields.userSearch.addEventListener("input", renderUsers);
+    fields.usersTableBody.addEventListener("click", (event) => {
+      const approveButton = event.target.closest("[data-approve]");
+      if (approveButton) {
+        approveUser(approveButton.dataset.approve);
+        return;
+      }
+
+      const makeSuperAdminButton = event.target.closest("[data-make-super-admin]");
+      if (makeSuperAdminButton) {
+        makeSuperAdmin(makeSuperAdminButton.dataset.makeSuperAdmin);
+        return;
+      }
+
+      const toggleButton = event.target.closest("[data-toggle-active]");
+      if (toggleButton && !toggleButton.disabled) {
+        toggleActiveUser(toggleButton.dataset.toggleActive);
+        return;
+      }
+
+      const rejectButton = event.target.closest("[data-reject]");
+      if (rejectButton && !rejectButton.disabled) {
+        rejectUser(rejectButton.dataset.reject);
+        return;
+      }
+
+      const deleteButton = event.target.closest("[data-delete-user]");
+      if (deleteButton && !deleteButton.disabled) {
+        deleteUser(deleteButton.dataset.deleteUser);
+      }
+    });
+
+    restoreSession();
+  </script>
+</body>
+</html>

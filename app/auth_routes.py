@@ -364,11 +364,6 @@ async def super_admin_page(
 
 
 @router.get(
-    "/admin/users",
-    response_model=UserDirectoryResponse,
-    tags=["user management"],
-)
-@router.get(
     "/super-admin/users",
     response_model=UserDirectoryResponse,
     tags=["user management"],
@@ -421,7 +416,7 @@ async def list_users(
 
 
 @router.get(
-    "/admin/users/{user_id}/roles",
+    "/super-admin/users/{user_id}/roles",
     response_model=RoleListResponse,
     tags=["user management"],
 )

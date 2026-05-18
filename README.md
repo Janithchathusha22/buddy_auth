@@ -1,165 +1,138 @@
-# Buddy Auth API
+# Buddy Auth
 
-FastAPI backend for Supabase Auth, profile synchronization, and database-backed role-based access control.
+Buddy Auth is a Supabase Auth + FastAPI + Supabase Postgres authentication and authorization project for a learning platform.
 
-This service is designed to sit behind a frontend that authenticates users with Supabase Auth. The frontend sends the Supabase access token to this API. The API verifies the token, loads the application profile and roles from Supabase Postgres, and enforces role access at the backend route level.
+It includes:
+
+- FastAPI backend for token verification, profile sync, RBAC, user approval, and LMS APIs
+- Supabase SQL schema with RLS, triggers, roles, profiles, courses, lessons, quizzes, progress, and attempts
+- Standalone frontend test UI for signup, login, Google login, role checks, course tools, and super-admin approvals
 
 ## Tech Stack
 
-- Python 3.13
-- FastAPI
-- Uvicorn
-- HTTPX
-- Pydantic v2
-- PyJWT with cryptography support
-- python-dotenv
-- Supabase Auth
-- Supabase Postgres with Row Level Security
-- uv for dependency management
-
-## Package Dependencies
-
-The runtime dependencies are declared in `pyproject.toml`:
-
-| Package | Purpose |
+| Area | Technology |
 | --- | --- |
-| `fastapi` | API framework and dependency-based authorization |
-| `uvicorn` | ASGI development server |
-| `httpx` | Async HTTP calls to Supabase Auth and PostgREST APIs |
-| `pydantic` | Request and response schemas |
-| `pyjwt[crypto]` | Supabase JWT verification through HS256 or JWKS-backed algorithms |
-| `python-dotenv` | Local environment variable loading |
+| Backend | Python 3.13, FastAPI, Uvicorn |
+| Auth | Supabase Auth, Google OAuth through Supabase |
+| Database | Supabase Postgres with Row Level Security |
+| HTTP Client | HTTPX |
+| Models | Pydantic v2 |
+| JWT | PyJWT |
+| Env | python-dotenv |
+| Package Manager | uv |
+| Frontend Test UI | HTML, CSS, JavaScript, Supabase JS CDN |
 
-## Architecture
+## Project Structure
 
 ```text
-Frontend
-  |
-  | Supabase email/password or Google login
-  v
-Supabase Auth
-  |
-  | access_token
-  v
-FastAPI Backend
-  |
-  | verifies token
-  | syncs profile
-  | reads roles
-  v
-Supabase Postgres
-  |
-  | profiles
-  | user_roles
-  v
-Backend RBAC response
+buddy-auth-api/
+  app/
+    main.py              FastAPI app, CORS, health route
+    auth_routes.py       Auth sync, RBAC, super-admin user management, LMS APIs
+    security.py          Bearer token validation and role dependencies
+    supabase_client.py   Supabase Auth and PostgREST HTTP integration
+    models.py            Roles, request models, response models
+    config.py            Environment-based settings
+  docs/
+    full-supabase-setup.sql
+    auth-rbac.md
+    developer-handoff-prompt.md
+  frontend/
+    index.html           Standalone auth dashboard
+    config.js            Public Supabase URL/key and backend URL
+    run-ui.ps1           Local static server helper
+  .env.example
+  pyproject.toml
+  uv.lock
 ```
 
-Core modules:
+## Roles
 
-| File | Responsibility |
-| --- | --- |
-| `app/main.py` | FastAPI app creation, CORS, router registration, health route |
-| `app/auth_routes.py` | Auth sync, current-user route, RBAC routes, super-admin user approval, LMS endpoints |
-| `app/security.py` | Bearer token extraction, Supabase JWT validation, current-user dependency, role guard dependency |
-| `app/supabase_client.py` | Supabase Auth and PostgREST integration through HTTPX |
-| `app/models.py` | Role enum, role grant rules, API request/response models |
-| `app/config.py` | Environment-driven settings |
-| `docs/full-supabase-setup.sql` | Complete Supabase schema, RLS policies, triggers, owner bootstrap, and LMS tables |
-| `docs/auth-rbac.sql` | Same production SQL kept for compatibility |
-| `docs/lms-learning-schema.sql` | Note that LMS schema is now included in the full setup SQL |
-| `docs/auth-rbac.md` | RBAC design notes |
-| `docs/developer-handoff-prompt.md` | English handoff prompt for another developer |
-
-## Role Model
-
-The application supports three roles:
+Only three roles are used:
 
 | Role | Meaning |
 | --- | --- |
-| `student` | Normal learning user |
-| `admin` | Course, lesson, quiz, and student-progress management user |
-| `super_admin` | System owner with full role-management access |
+| `student` | Learner account |
+| `admin` | Course, lesson, quiz, content, and student-progress manager |
+| `super_admin` | System owner and user/role manager |
+
+There is no separate `teacher` role. In this project, `admin` performs teacher/admin duties.
 
 Role hierarchy:
 
-| User Type | Stored Roles |
+| Approved As | Stored Roles |
 | --- | --- |
-| Normal signup | `student` |
-| Admin | `student`, `admin` |
-| Super Admin | `student`, `admin`, `super_admin` |
+| `student` | `student` |
+| `admin` | `student`, `admin` |
+| `super_admin` | `student`, `admin`, `super_admin` |
 
-Access rules:
+## Signup and Approval Rules
 
-| Page or API Area | Allowed Roles |
-| --- | --- |
-| Student area | `student`, `admin`, `super_admin` |
-| Admin area | `admin`, `super_admin` |
-| Super admin area | `super_admin` |
+- Any user can sign up.
+- New public signups are created as `pending`.
+- Every new signup gets only the real role `student`.
+- `requested_role` from the frontend is only a request, not permission.
+- Pending, rejected, suspended, or inactive users cannot enter protected app routes.
+- Only `super_admin` can approve users, reject users, suspend users, delete users, or create another `super_admin`.
+- `admin` can manage learning content but cannot approve users.
+- The bootstrap owner email is `danu@absolx.com`.
+- When that owner account exists in Supabase Auth, it is approved and receives `student + admin + super_admin`.
+- Passwords are never stored in SQL or Git. Supabase Auth owns passwords.
 
-The frontend may use the returned `roles` array to show or hide navigation, but security must remain in the backend and Supabase RLS. Never trust a frontend dropdown or local state as authorization.
+## Supabase Setup
 
-## Supabase Database Design
+Run this single SQL file in Supabase SQL Editor:
 
-Tables:
+```text
+docs/full-supabase-setup.sql
+```
 
-| Table | Purpose |
-| --- | --- |
-| `auth.users` | Supabase-managed login identity |
-| `public.profiles` | Application profile data such as name, provider, avatar, requested role, and active status |
-| `public.user_roles` | Many-to-many role assignments for each user |
+This creates:
 
-`docs/full-supabase-setup.sql` creates:
-
-- `public.app_role` enum
+- `public.app_role`
+- `public.approval_status`
+- `public.course_status`
+- `public.lesson_progress_status`
 - `public.profiles`
 - `public.user_roles`
-- LMS tables for courses, course assignments, lessons, quizzes, progress, and quiz attempts
-- indexes
+- `public.courses`
+- `public.course_students`
+- `public.lessons`
+- `public.quizzes`
+- `public.lesson_progress`
+- `public.quiz_attempts`
+- triggers for new users and `updated_at`
+- helper functions
 - RLS policies
-- helper functions for role checks
-- `handle_new_user()` trigger for automatic profile creation
-- default `student` role assignment for new users
-- backfill logic for existing Supabase Auth users
+- owner bootstrap/backfill logic
 
-Production behavior:
+## Backend Environment
 
-- Public signup creates a profile, grants only `student`, and keeps the profile `pending`.
-- `requested_role` is stored for review, but it is not trusted as an actual role.
-- Higher roles and approvals must be granted by a trusted super-admin backend flow.
-
-## Environment Variables
-
-Create a local `.env` file from `.env.example`:
+Create `.env` from `.env.example`:
 
 ```powershell
+cd D:\buddy2\buddy-auth-api
 copy .env.example .env
 ```
 
-Required variables:
+Fill real values:
 
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `SUPABASE_URL` | Yes | Supabase project URL, for example `https://project-ref.supabase.co` |
-| `SUPABASE_ANON_KEY` | Yes | Public anon or publishable key used to validate user tokens through Supabase Auth |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Backend-only service role key used for profile and role reads/writes |
-| `SUPABASE_JWT_SECRET` | Optional | Only needed for local HS256 JWT verification; leave empty to validate HS256 tokens through Supabase Auth |
-| `SUPABASE_JWT_AUDIENCE` | Optional | Defaults to `authenticated` |
-| `CORS_ORIGINS` | Optional | Comma-separated frontend origins |
+```env
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-or-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_JWT_SECRET=
+SUPABASE_JWT_AUDIENCE=authenticated
+CORS_ORIGINS=http://localhost:5174,http://127.0.0.1:5174
+```
 
-Security rules:
+Security notes:
 
+- Never commit `.env`.
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` in frontend code.
-- Never commit a real `.env` file.
-- Rotate keys if they were shared publicly.
+- Rotate keys if a secret was shared in chat, screenshots, GitHub, or frontend files.
 
-## Setup
-
-1. Install uv.
-2. Configure the Supabase database by running `docs/full-supabase-setup.sql` in the Supabase SQL Editor.
-3. Copy `.env.example` to `.env`.
-4. Fill in the real Supabase values.
-5. Start the API.
+## Run Backend
 
 ```powershell
 cd D:\buddy2\buddy-auth-api
@@ -167,16 +140,11 @@ uv sync
 uv run uvicorn app.main:app --reload
 ```
 
-Default local API URL:
+Backend URLs:
 
 ```text
-http://127.0.0.1:8000
-```
-
-Interactive API docs:
-
-```text
-http://127.0.0.1:8000/docs
+API:  http://127.0.0.1:8000
+Docs: http://127.0.0.1:8000/docs
 ```
 
 Health check:
@@ -185,88 +153,79 @@ Health check:
 GET /
 ```
 
-Response:
+## Run Frontend Test UI
 
-```json
-{
-  "status": "ok",
-  "service": "buddy-auth-api"
-}
-```
-
-## Frontend Integration
-
-The frontend should:
-
-1. Authenticate with Supabase Auth.
-2. Read `session.access_token`.
-3. Send that token to this backend as a bearer token.
-4. Call `POST /auth/sync` after login/signup/OAuth redirect.
-5. Call `GET /auth/me` to load the current app profile and roles.
-
-Authorization header:
-
-```http
-Authorization: Bearer <supabase-access-token>
-```
-
-Example JavaScript:
+Edit `frontend/config.js` and keep only public frontend-safe values:
 
 ```js
-const response = await fetch("http://127.0.0.1:8000/auth/me", {
-  headers: {
-    Authorization: `Bearer ${session.access_token}`,
-  },
-});
+export const SUPABASE_URL = "https://your-project-ref.supabase.co";
+export const SUPABASE_ANON_KEY = "your-public-anon-or-publishable-key";
+export const BACKEND_URL = "http://127.0.0.1:8000";
 ```
 
-## Google OAuth Notes
+Run:
 
-Google login is configured in Supabase and Google Cloud, not in this backend.
+```powershell
+cd D:\buddy2\buddy-auth-api\frontend
+.\run-ui.ps1
+```
 
-Supabase Google provider:
-
-- Authentication -> Providers -> Google
-- Enable Google
-- Add the real Google OAuth Web Client ID:
+Open:
 
 ```text
-636044689877-itm8g0g9n0d740ss11pd3p3oom2gc827.apps.googleusercontent.com
+http://127.0.0.1:5174
 ```
 
-- Add the matching Google OAuth Client Secret
+## Google OAuth Setup
+
+Supabase:
+
+1. Go to Authentication -> Providers -> Google.
+2. Enable Google.
+3. Add your Google OAuth Web Client ID.
+4. Add the matching Google OAuth Client Secret.
+
+Current Web Client ID used during development:
+
+```text
+265685837645-sniif4ph5apapfv0s7k1cgfmtisnebuq.apps.googleusercontent.com
+```
 
 Google Cloud OAuth client:
 
-- Application type: Web application
-- Authorized JavaScript origins:
+Authorized JavaScript origins:
 
 ```text
 http://127.0.0.1:5174
 http://localhost:5174
 ```
 
-- Authorized redirect URI:
-
-```text
-https://<project-ref>.supabase.co/auth/v1/callback
-```
-
-For this project ref:
+Authorized redirect URI:
 
 ```text
 https://qooonyufrtwgxfbfiacg.supabase.co/auth/v1/callback
 ```
 
-Common errors:
+Supabase Authentication -> URL Configuration:
 
-| Error | Meaning | Fix |
-| --- | --- | --- |
-| `Unsupported provider: provider is not enabled` | Google provider is not enabled in Supabase | Enable Google and save provider settings |
-| `Error 401: invalid_client` | Google Client ID or Client Secret is wrong or fake | Use a real Google Cloud OAuth Web Client ID and matching secret |
-| `redirect_uri_mismatch` | Callback URL is not registered in Google Cloud | Add the exact Supabase callback URL |
+```text
+Site URL:
+http://127.0.0.1:5174
 
-Do not commit the Google OAuth client secret or Supabase service role key.
+Redirect URLs:
+http://127.0.0.1:5174
+http://127.0.0.1:5174/
+http://localhost:5174
+http://localhost:5174/
+```
+
+Common OAuth errors:
+
+| Error | Fix |
+| --- | --- |
+| `Unsupported provider: provider is not enabled` | Enable Google provider in Supabase |
+| `invalid_client` | Use the real Google Web Client ID and matching secret |
+| `redirect_uri_mismatch` | Add the exact Supabase callback URL in Google Cloud |
 
 ## API Endpoints
 
@@ -276,125 +235,76 @@ All protected endpoints require:
 Authorization: Bearer <supabase-access-token>
 ```
 
-| Method | Path | Auth Required | Roles | Description |
-| --- | --- | --- | --- | --- |
-| `GET` | `/` | No | Public | Health check |
-| `POST` | `/auth/sync` | Yes | Any authenticated Supabase user | Sync Supabase Auth identity into `profiles`, ensure default `student` role, return current app user |
-| `GET` | `/auth/me` | Yes | Any active user with at least one role | Return current app profile and roles |
-| `GET` | `/dashboard/redirect` | Yes | Approved active user | Return `/super-admin`, `/admin`, or `/student` based on highest role |
-| `GET` | `/student` | Yes | `student`, `admin`, `super_admin` | Student-access example route |
-| `GET` | `/admin` | Yes | `admin`, `super_admin` | Admin-access example route |
-| `GET` | `/super-admin` | Yes | `super_admin` | Super-admin-only example route |
-| `GET` | `/super-admin/users` | Yes | `super_admin` | List Supabase Auth users with app profiles and roles |
-| `GET` | `/admin/users` | Yes | `super_admin` | Compatibility alias for user list |
-| `GET` | `/admin/users/{user_id}/roles` | Yes | `super_admin` | Read roles for a user |
-| `POST` | `/super-admin/users/{user_id}/roles` | Yes | `super_admin` | Grant a role hierarchy to a user |
-| `POST` | `/super-admin/users/{user_id}/approve` | Yes | `super_admin` | Approve a user as `student`, `admin`, or `super_admin` |
-| `POST` | `/super-admin/users/{user_id}/reject` | Yes | `super_admin` | Reject a pending user |
-| `POST` | `/super-admin/users/{user_id}/suspend` | Yes | `super_admin` | Suspend and deactivate a user |
-| `POST` | `/super-admin/users/{user_id}/activate` | Yes | `super_admin` | Activate an approved user |
-| `POST` | `/super-admin/users/{user_id}/deactivate` | Yes | `super_admin` | Deactivate and suspend a user |
-| `DELETE` | `/super-admin/users/{user_id}` | Yes | `super_admin` | Delete a Supabase Auth user except self or bootstrap owner |
-| `GET` | `/courses` | Yes | `student`, `admin`, `super_admin` | Students see assigned courses; admins see all courses |
-| `POST` | `/courses` | Yes | `admin`, `super_admin` | Create course |
-| `PATCH` | `/courses/{course_id}` | Yes | `admin`, `super_admin` | Edit course |
-| `DELETE` | `/courses/{course_id}` | Yes | `admin`, `super_admin` | Delete course |
-| `POST` | `/courses/{course_id}/students` | Yes | `admin`, `super_admin` | Assign student to course |
-| `GET` | `/courses/{course_id}/lessons` | Yes | `student`, `admin`, `super_admin` | Students see published lessons only |
-| `POST` | `/courses/{course_id}/lessons` | Yes | `admin`, `super_admin` | Create lesson |
-| `PATCH` | `/lessons/{lesson_id}` | Yes | `admin`, `super_admin` | Edit lesson |
-| `DELETE` | `/lessons/{lesson_id}` | Yes | `admin`, `super_admin` | Delete lesson |
-| `POST` | `/lessons/{lesson_id}/quizzes` | Yes | `admin`, `super_admin` | Create quiz |
-| `PATCH` | `/quizzes/{quiz_id}` | Yes | `admin`, `super_admin` | Edit quiz |
-| `DELETE` | `/quizzes/{quiz_id}` | Yes | `admin`, `super_admin` | Delete quiz |
-| `PUT` | `/lessons/{lesson_id}/progress` | Yes | `student`, `admin`, `super_admin` | Save own lesson progress |
-| `POST` | `/quizzes/{quiz_id}/attempts` | Yes | `student`, `admin`, `super_admin` | Submit own quiz attempt |
-| `GET` | `/admin/student-progress` | Yes | `admin`, `super_admin` | View student progress |
-
-## Response Models
-
-`UserResponse`:
-
-```json
-{
-  "id": "uuid",
-  "email": "user@example.com",
-  "full_name": "Saman Perera",
-  "avatar_url": "https://example.com/avatar.png",
-  "auth_provider": "google",
-  "requested_role": "admin",
-  "approval_status": "approved",
-  "is_active": true,
-  "roles": ["student", "admin"]
-}
-```
-
-`RoleGrantRequest`:
-
-```json
-{
-  "role": "admin"
-}
-```
-
-Role grant behavior:
-
-| Requested Grant | Roles Written |
-| --- | --- |
-| `student` | `student` |
-| `admin` | `student`, `admin` |
-| `super_admin` | `student`, `admin`, `super_admin` |
-
-Approval behavior:
-
-| User | Signup Result | App Access |
-| --- | --- | --- |
-| Normal student | `approval_status = pending`, role `student` | Blocked until approved |
-| Admin request | `approval_status = pending`, role `student`, `requested_role = admin` | Blocked until approved and granted `admin` |
-| `danu@absolx.com` | `approval_status = approved`, roles `student`, `admin`, `super_admin` | Full access after Supabase Auth account exists |
-
-Approve a user from Supabase SQL Editor:
-
-```sql
-select public.approve_user_by_email('student@example.com', 'student');
-select public.approve_user_by_email('admin@example.com', 'admin');
-select public.approve_user_by_email('owner@example.com', 'super_admin');
-```
-
-The LMS database tables and RLS policies are included in `docs/full-supabase-setup.sql`.
+| Method | Path | Roles | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/` | Public | Health check |
+| `POST` | `/auth/sync` | Authenticated Supabase user | Sync Supabase Auth identity into app profile |
+| `GET` | `/auth/me` | Approved active user | Current profile and roles |
+| `GET` | `/dashboard/redirect` | Approved active user | Return `/super-admin`, `/admin`, or `/student` |
+| `GET` | `/student` | `student`, `admin`, `super_admin` | Student access check |
+| `GET` | `/admin` | `admin`, `super_admin` | Admin access check |
+| `GET` | `/super-admin` | `super_admin` | Super-admin access check |
+| `GET` | `/super-admin/users` | `super_admin` | List auth users with profiles and roles |
+| `GET` | `/super-admin/users/{user_id}/roles` | `super_admin` | Read one user's roles |
+| `POST` | `/super-admin/users/{user_id}/roles` | `super_admin` | Replace role hierarchy |
+| `POST` | `/super-admin/users/{user_id}/approve` | `super_admin` | Approve as student/admin/super_admin |
+| `POST` | `/super-admin/users/{user_id}/reject` | `super_admin` | Reject user |
+| `POST` | `/super-admin/users/{user_id}/suspend` | `super_admin` | Suspend and deactivate user |
+| `POST` | `/super-admin/users/{user_id}/activate` | `super_admin` | Activate approved user |
+| `POST` | `/super-admin/users/{user_id}/deactivate` | `super_admin` | Deactivate user |
+| `DELETE` | `/super-admin/users/{user_id}` | `super_admin` | Delete user except self/bootstrap owner |
+| `GET` | `/courses` | `student`, `admin`, `super_admin` | Students see assigned courses; admins see all |
+| `POST` | `/courses` | `admin`, `super_admin` | Create course |
+| `PATCH` | `/courses/{course_id}` | `admin`, `super_admin` | Edit course |
+| `DELETE` | `/courses/{course_id}` | `admin`, `super_admin` | Delete course |
+| `POST` | `/courses/{course_id}/students` | `admin`, `super_admin` | Assign student to course |
+| `GET` | `/courses/{course_id}/lessons` | `student`, `admin`, `super_admin` | List lessons |
+| `POST` | `/courses/{course_id}/lessons` | `admin`, `super_admin` | Create lesson |
+| `PATCH` | `/lessons/{lesson_id}` | `admin`, `super_admin` | Edit lesson |
+| `DELETE` | `/lessons/{lesson_id}` | `admin`, `super_admin` | Delete lesson |
+| `GET` | `/lessons/{lesson_id}/quizzes` | `student`, `admin`, `super_admin` | List quizzes |
+| `POST` | `/lessons/{lesson_id}/quizzes` | `admin`, `super_admin` | Create quiz |
+| `PATCH` | `/quizzes/{quiz_id}` | `admin`, `super_admin` | Edit quiz |
+| `DELETE` | `/quizzes/{quiz_id}` | `admin`, `super_admin` | Delete quiz |
+| `PUT` | `/lessons/{lesson_id}/progress` | `student`, `admin`, `super_admin` | Save own progress |
+| `GET` | `/progress/me` | `student`, `admin`, `super_admin` | View own progress |
+| `POST` | `/quizzes/{quiz_id}/attempts` | `student`, `admin`, `super_admin` | Submit quiz attempt |
+| `GET` | `/admin/student-progress` | `admin`, `super_admin` | View student progress |
 
 ## Development Checks
 
-Compile check:
-
 ```powershell
+cd D:\buddy2\buddy-auth-api
 uv run python -m compileall app
-```
-
-List routes:
-
-```powershell
 uv run python -c "from app.main import app; print([route.path for route in app.routes])"
+git status --short
 ```
 
-Check git status:
+## Git Push
+
+This repository is intended to push backend and frontend together:
 
 ```powershell
-git status --short
+cd D:\buddy2\buddy-auth-api
+git add .
+git commit -m "Update Buddy auth backend and frontend"
+git branch -M main
+git remote add origin https://github.com/Janithchathusha22/buddy_auth.git
+git push -u origin main
+```
+
+If `origin` already exists, use:
+
+```powershell
+git remote set-url origin https://github.com/Janithchathusha22/buddy_auth.git
+git push -u origin main
 ```
 
 ## Production Notes
 
-- Keep role grants server-side.
-- Use the production-safe `docs/full-supabase-setup.sql`.
-- Keep the service role key only on the backend.
-- Use HTTPS outside local development.
-- Restrict `CORS_ORIGINS` to real frontend domains.
-- Prefer Supabase asymmetric JWT signing keys where possible.
-- Keep Supabase RLS enabled.
-
-## Developer Handoff Summary
-
-This backend verifies Supabase Auth tokens and maps them to application roles stored in Supabase Postgres. Supabase Auth owns login identity. `profiles` owns application profile data. `user_roles` owns actual authorization. The frontend can request a role during signup, but in production that value is stored only as `requested_role`; actual elevated roles must be granted by a trusted backend route.
-
-For a full handoff prompt, see `docs/developer-handoff-prompt.md`.
+- Keep authorization in backend and Supabase RLS.
+- Do not trust frontend role dropdowns.
+- Keep service role key backend-only.
+- Use HTTPS in production.
+- Restrict CORS to real frontend domains.
+- Keep only the three roles: `student`, `admin`, `super_admin`.

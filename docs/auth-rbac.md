@@ -54,7 +54,7 @@ Protected endpoints are implemented with FastAPI dependencies:
 - `GET /admin`
 - `GET /super-admin`
 - `GET /super-admin/users`
-- `GET /admin/users/{user_id}/roles`
+- `GET /super-admin/users/{user_id}/roles`
 - `POST /super-admin/users/{user_id}/approve`
 - `POST /super-admin/users/{user_id}/roles`
 
@@ -68,7 +68,7 @@ the Supabase token, copies basic Google/Supabase Auth identity data into
 
 ## Supabase Setup
 
-Run `docs/auth-rbac.sql` in the Supabase SQL editor.
+Run `docs/full-supabase-setup.sql` in the Supabase SQL editor.
 
 Then configure `.env` from `.env.example`.
 

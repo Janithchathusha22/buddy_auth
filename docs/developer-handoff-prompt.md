@@ -32,9 +32,9 @@ Important files:
 - `app/models.py`: roles, role grant hierarchy, Pydantic request/response models.
 - `app/config.py`: environment settings.
 - `docs/full-supabase-setup.sql`: production-safe Supabase database schema, RLS policies, triggers, owner bootstrap, and LMS tables.
-- `docs/auth-rbac.sql`: same production SQL kept for compatibility.
-- `docs/lms-learning-schema.sql`: note that LMS schema is included in the full setup SQL.
 - `.env.example`: required backend environment variables.
+- `frontend/index.html`: standalone test UI for signup/login, Google login, role checks, course tools, and super-admin approvals.
+- `frontend/config.js`: public frontend configuration only.
 - `README.md`: setup, endpoints, architecture, and operational notes.
 
 Endpoints:
@@ -45,8 +45,7 @@ Endpoints:
 - `GET /admin`: allowed for admin, super_admin.
 - `GET /super-admin`: allowed for super_admin only.
 - `GET /super-admin/users`: list auth users with profiles and roles, allowed for super_admin only.
-- `GET /admin/users`: compatibility alias for super_admin-only user list.
-- `GET /admin/users/{user_id}/roles`: read roles for a user, allowed for super_admin only.
+- `GET /super-admin/users/{user_id}/roles`: read roles for a user, allowed for super_admin only.
 - `POST /super-admin/users/{user_id}/approve`: approve a user as student, admin, or super_admin.
 - `POST /super-admin/users/{user_id}/roles`: replace role hierarchy, allowed for super_admin only.
 - LMS routes include course create/edit/delete, lesson create/edit/delete, quiz create/edit/delete, course student assignment, progress save, quiz attempt submit, and admin progress viewing.
@@ -68,7 +67,7 @@ Security constraints:
 - In production, use `docs/full-supabase-setup.sql`.
 
 Current known development context:
-- A separate simple frontend can use Supabase Auth and then call this backend with the Supabase access token.
+- The repository includes a simple frontend under `frontend/`.
 - Google OAuth must be configured in Supabase and Google Cloud using the real Google OAuth Web Client ID and Client Secret.
 - The Supabase callback URL for this project is:
   `https://qooonyufrtwgxfbfiacg.supabase.co/auth/v1/callback`
