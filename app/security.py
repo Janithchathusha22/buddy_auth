@@ -8,6 +8,7 @@ from jwt import InvalidTokenError, PyJWKClient
 
 from app.config import MissingConfigError, Settings, get_settings
 from app.models import AppRole, ApprovalStatus, CurrentUser
+from app.presence import presence_status_from_last_seen
 from app.supabase_client import (
     SupabaseAuthError,
     SupabaseDataError,
@@ -131,6 +132,8 @@ async def get_current_user(
         requested_role=profile.get("requested_role"),
         approval_status=approval_status,
         is_active=profile["is_active"],
+        last_seen_at=profile.get("last_seen_at"),
+        presence_status=presence_status_from_last_seen(profile.get("last_seen_at")),
         roles=roles,
     )
 

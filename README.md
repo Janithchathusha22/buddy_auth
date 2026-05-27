@@ -29,6 +29,8 @@ buddy-auth-api/
   app/
     main.py              FastAPI app, CORS, health route
     auth_routes.py       Auth sync, RBAC, super-admin user management, LMS APIs
+    presence.py          Online/offline threshold helpers
+    presence_routes.py   Heartbeat endpoint for last_seen_at updates
     security.py          Bearer token validation and role dependencies
     supabase_client.py   Supabase Auth and PostgREST HTTP integration
     models.py            Roles, request models, response models
@@ -87,6 +89,13 @@ Run this single SQL file in Supabase SQL Editor:
 docs/full-supabase-setup.sql
 ```
 
+If the project database was already set up before the online/offline dashboard
+was added, run this small migration once:
+
+```text
+docs/add-presence-last-seen.sql
+```
+
 This creates:
 
 - `public.app_role`
@@ -95,6 +104,7 @@ This creates:
 - `public.lesson_progress_status`
 - `public.profiles`
 - `public.user_roles`
+- `public.profiles.last_seen_at` for dashboard online/offline presence
 - `public.courses`
 - `public.course_students`
 - `public.lessons`

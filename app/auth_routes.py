@@ -34,6 +34,7 @@ from app.models import (
     UserDirectoryResponse,
     UserResponse,
 )
+from app.presence import presence_status_from_last_seen
 from app.security import get_bearer_token, get_current_user, require_roles
 from app.supabase_client import (
     SupabaseDataError,
@@ -64,6 +65,7 @@ from app.supabase_client import (
     list_lessons,
     list_quizzes,
     list_student_progress,
+    mark_user_seen,
     sync_profile_from_auth_user,
     set_user_approval_status,
     set_user_active_status,
@@ -89,6 +91,8 @@ def _user_response(user: CurrentUser) -> UserResponse:
         requested_role=user.requested_role,
         approval_status=user.approval_status,
         is_active=user.is_active,
+        last_seen_at=user.last_seen_at,
+        presence_status=user.presence_status,
         roles=sorted(user.roles),
     )
 
@@ -303,6 +307,7 @@ async def sync_authenticated_user(
         auth_user = await fetch_auth_user_from_token(token, settings)
         user_id = UUID(auth_user["id"])
         await sync_profile_from_auth_user(settings, auth_user)
+        await mark_user_seen(settings, user_id)
         profile = await fetch_profile(settings, user_id)
         roles = await fetch_user_roles(settings, user_id)
     except MissingConfigError as exc:
@@ -336,6 +341,8 @@ async def sync_authenticated_user(
         requested_role=profile.get("requested_role"),
         approval_status=profile.get("approval_status", "pending"),
         is_active=profile.get("is_active", True),
+        last_seen_at=profile.get("last_seen_at"),
+        presence_status=presence_status_from_last_seen(profile.get("last_seen_at")),
         roles=sorted(roles),
     )
 
@@ -404,6 +411,10 @@ async def list_users(
                 requested_role=profile.get("requested_role"),
                 approval_status=profile.get("approval_status", "pending"),
                 is_active=profile.get("is_active", False),
+                last_seen_at=profile.get("last_seen_at"),
+                presence_status=presence_status_from_last_seen(
+                    profile.get("last_seen_at")
+                ),
                 roles=sorted(roles_by_user.get(user_id, set())),
                 created_at=auth_user.get("created_at"),
                 last_sign_in_at=auth_user.get("last_sign_in_at"),

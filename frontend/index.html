@@ -231,7 +231,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 14px;
     }
@@ -281,7 +281,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 820px;
+      min-width: 960px;
     }
 
     th,
@@ -349,6 +349,51 @@
       color: #8a1f17;
     }
 
+    .badge.online {
+      background: #def7ec;
+      color: #0f5132;
+    }
+
+    .badge.offline {
+      background: #eceff3;
+      color: #43515c;
+    }
+
+    .role-presence-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .role-presence {
+      border: 1px solid #d8e4e0;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fcfb;
+    }
+
+    .role-presence span,
+    .role-presence small {
+      display: block;
+      color: #61736e;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .role-presence strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 18px;
+      line-height: 1.15;
+    }
+
+    .role-presence small {
+      margin-top: 4px;
+      text-transform: none;
+    }
+
     .row-actions {
       display: grid;
       grid-template-columns: 1fr;
@@ -407,7 +452,8 @@
       }
 
       .button-grid,
-      .stats {
+      .stats,
+      .role-presence-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -640,6 +686,32 @@
                 <span>Inactive</span>
                 <strong id="statInactive">0</strong>
               </div>
+              <div class="stat">
+                <span>Online</span>
+                <strong id="statOnline">0</strong>
+              </div>
+              <div class="stat">
+                <span>Offline</span>
+                <strong id="statOffline">0</strong>
+              </div>
+            </div>
+
+            <div class="role-presence-grid" aria-label="Role online status">
+              <div class="role-presence">
+                <span>Students</span>
+                <strong id="roleStudentOnline">0 online</strong>
+                <small id="roleStudentOffline">0 offline</small>
+              </div>
+              <div class="role-presence">
+                <span>Admins</span>
+                <strong id="roleAdminOnline">0 online</strong>
+                <small id="roleAdminOffline">0 offline</small>
+              </div>
+              <div class="role-presence">
+                <span>Super admins</span>
+                <strong id="roleSuperAdminOnline">0 online</strong>
+                <small id="roleSuperAdminOffline">0 offline</small>
+              </div>
             </div>
 
             <div class="toolbar">
@@ -653,6 +725,7 @@
                   <tr>
                     <th>User</th>
                     <th>Status</th>
+                    <th>Presence</th>
                     <th>Requested</th>
                     <th>Real roles</th>
                     <th>Action</th>
@@ -660,7 +733,7 @@
                 </thead>
                 <tbody id="usersTableBody">
                   <tr>
-                    <td colspan="5" class="muted">Login as super admin and click Load users.</td>
+                    <td colspan="6" class="muted">Login as super admin and click Load users.</td>
                   </tr>
                 </tbody>
               </table>
@@ -674,12 +747,21 @@
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
     import { BACKEND_URL, SUPABASE_ANON_KEY, SUPABASE_URL } from "./config.js";
+    import {
+      formatLastSeen,
+      formatPresenceLabel,
+      normalizePresenceStatus,
+      presenceBadgeClass,
+      summarizePresenceByRole,
+    } from "./presence-dashboard.js";
 
     const pendingGoogleRoleKey = "buddy-pending-google-role";
     const BOOTSTRAP_OWNER_EMAIL = "danu@absolx.com";
+    const HEARTBEAT_INTERVAL_MS = 30000;
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let session = null;
     let users = [];
+    let heartbeatTimer = null;
 
     const fields = {
       fullName: document.getElementById("fullName"),
@@ -694,6 +776,14 @@
       statPending: document.getElementById("statPending"),
       statApproved: document.getElementById("statApproved"),
       statInactive: document.getElementById("statInactive"),
+      statOnline: document.getElementById("statOnline"),
+      statOffline: document.getElementById("statOffline"),
+      roleStudentOnline: document.getElementById("roleStudentOnline"),
+      roleStudentOffline: document.getElementById("roleStudentOffline"),
+      roleAdminOnline: document.getElementById("roleAdminOnline"),
+      roleAdminOffline: document.getElementById("roleAdminOffline"),
+      roleSuperAdminOnline: document.getElementById("roleSuperAdminOnline"),
+      roleSuperAdminOffline: document.getElementById("roleSuperAdminOffline"),
       courseId: document.getElementById("courseId"),
       courseTitle: document.getElementById("courseTitle"),
       courseDescription: document.getElementById("courseDescription"),
@@ -722,8 +812,10 @@
       session = nextSession;
       if (session?.user?.email) {
         fields.sessionPill.textContent = session.user.email;
+        startHeartbeat();
       } else {
         fields.sessionPill.textContent = "No session";
+        stopHeartbeat();
       }
     }
 
@@ -787,6 +879,31 @@
       };
     }
 
+    async function sendHeartbeat() {
+      if (!session?.access_token) {
+        return;
+      }
+
+      try {
+        await callBackend("/auth/heartbeat", "POST");
+      } catch {
+        // Heartbeat should not interrupt the visible dashboard workflow.
+      }
+    }
+
+    function startHeartbeat() {
+      stopHeartbeat();
+      sendHeartbeat();
+      heartbeatTimer = window.setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+    }
+
+    function stopHeartbeat() {
+      if (heartbeatTimer) {
+        window.clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+    }
+
     async function syncBackend(label = "Backend sync") {
       const result = await callBackend("/auth/sync", "POST");
       write(`${label} -> ${result.status}`, {
@@ -794,6 +911,8 @@
         requested_role: result.body?.requested_role,
         approval_status: result.body?.approval_status,
         is_active: result.body?.is_active,
+        presence_status: result.body?.presence_status,
+        last_seen_at: result.body?.last_seen_at,
         can_enter_app: result.ok && result.body?.approval_status === "approved" && result.body?.is_active,
         google_profile: {
           email: result.body?.email,
@@ -919,6 +1038,8 @@
         requested_role: result.body?.requested_role,
         approval_status: result.body?.approval_status,
         is_active: result.body?.is_active,
+        presence_status: result.body?.presence_status,
+        last_seen_at: result.body?.last_seen_at,
         can_enter_app: result.ok && result.body?.approval_status === "approved" && result.body?.is_active,
         raw: result.body,
       });
@@ -1057,6 +1178,8 @@
         total: users.length,
         pending: users.filter((user) => user.approval_status === "pending").length,
         approved: users.filter((user) => user.approval_status === "approved").length,
+        online: users.filter((user) => normalizePresenceStatus(user) === "online").length,
+        offline: users.filter((user) => normalizePresenceStatus(user) === "offline").length,
       });
     }
 
@@ -1087,23 +1210,37 @@
     }
 
     function updateStats(filteredUsers) {
+      const onlineUsers = filteredUsers.filter((user) => normalizePresenceStatus(user) === "online");
       fields.statTotal.textContent = String(filteredUsers.length);
       fields.statPending.textContent = String(filteredUsers.filter((user) => user.approval_status === "pending").length);
       fields.statApproved.textContent = String(filteredUsers.filter((user) => user.approval_status === "approved").length);
       fields.statInactive.textContent = String(filteredUsers.filter((user) => !user.is_active).length);
+      fields.statOnline.textContent = String(onlineUsers.length);
+      fields.statOffline.textContent = String(filteredUsers.length - onlineUsers.length);
+      updateRolePresence(filteredUsers);
+    }
+
+    function updateRolePresence(filteredUsers) {
+      const summary = summarizePresenceByRole(filteredUsers);
+      fields.roleStudentOnline.textContent = `${summary.student.online} online`;
+      fields.roleStudentOffline.textContent = `${summary.student.offline} offline`;
+      fields.roleAdminOnline.textContent = `${summary.admin.online} online`;
+      fields.roleAdminOffline.textContent = `${summary.admin.offline} offline`;
+      fields.roleSuperAdminOnline.textContent = `${summary.super_admin.online} online`;
+      fields.roleSuperAdminOffline.textContent = `${summary.super_admin.offline} offline`;
     }
 
     function renderUsers() {
       const query = fields.userSearch.value.trim().toLowerCase();
       const filteredUsers = users.filter((user) => {
-        const text = `${user.email || ""} ${user.full_name || ""}`.toLowerCase();
+        const text = `${user.email || ""} ${user.full_name || ""} ${user.presence_status || ""} ${(user.roles || []).join(" ")}`.toLowerCase();
         return text.includes(query);
       });
 
       updateStats(filteredUsers);
 
       if (!filteredUsers.length) {
-        fields.usersTableBody.innerHTML = '<tr><td colspan="5" class="muted">No users found.</td></tr>';
+        fields.usersTableBody.innerHTML = '<tr><td colspan="6" class="muted">No users found.</td></tr>';
         return;
       }
 
@@ -1112,6 +1249,9 @@
           const requestedRole = user.requested_role || "student";
           const statusClass = escapeHtml(user.approval_status || "pending");
           const activeText = user.is_active ? "Active" : "Inactive";
+          const presenceStatus = normalizePresenceStatus(user);
+          const presenceLabel = formatPresenceLabel(presenceStatus);
+          const lastSeen = formatLastSeen(user.last_seen_at);
           const isSelf = session?.user?.id === user.id;
           const isOwner = (user.email || "").trim().toLowerCase() === BOOTSTRAP_OWNER_EMAIL;
           const protectedAccount = isSelf || isOwner;
@@ -1129,6 +1269,12 @@
                   <span class="badge ${statusClass}">${escapeHtml(user.approval_status)}</span>
                   <span class="badge">${escapeHtml(activeText)}</span>
                 </div>
+              </td>
+              <td>
+                <div class="badges">
+                  <span class="badge ${presenceBadgeClass(presenceStatus)}">${escapeHtml(presenceLabel)}</span>
+                </div>
+                <div class="muted">${escapeHtml(lastSeen)}</div>
               </td>
               <td>${escapeHtml(requestedRole)}</td>
               <td>${renderRoleBadges(user.roles)}</td>
@@ -1295,6 +1441,12 @@
       const deleteButton = event.target.closest("[data-delete-user]");
       if (deleteButton && !deleteButton.disabled) {
         deleteUser(deleteButton.dataset.deleteUser);
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        sendHeartbeat();
       }
     });
 

@@ -38,7 +38,7 @@ def _is_owner_email(email: str | None) -> bool:
     return (email or "").strip().lower() == OWNER_EMAIL
 
 
-PROFILE_SELECT = "id,full_name,avatar_url,auth_provider,requested_role,approval_status,is_active"
+PROFILE_SELECT = "id,full_name,avatar_url,auth_provider,requested_role,approval_status,is_active,last_seen_at"
 
 
 async def fetch_auth_user_from_token(
@@ -293,6 +293,30 @@ async def delete_auth_user(settings: Settings, user_id: UUID) -> None:
 
     if response.status_code not in {200, 204}:
         raise SupabaseDataError("Failed to delete auth user from Supabase")
+
+
+async def mark_user_seen(settings: Settings, user_id: UUID) -> str:
+    last_seen_at = datetime.now(timezone.utc).isoformat()
+    headers = _service_headers(settings) | {
+        "Prefer": "return=representation",
+    }
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.patch(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers=headers,
+            params={"id": f"eq.{user_id}"},
+            json={"last_seen_at": last_seen_at},
+        )
+
+    if response.status_code not in {200, 204}:
+        raise SupabaseDataError("Failed to update user presence in Supabase")
+
+    rows = response.json() if response.content else []
+    if rows:
+        return rows[0].get("last_seen_at") or last_seen_at
+
+    return last_seen_at
 
 
 async def upsert_user_roles(

@@ -44,7 +44,8 @@ Only use the public Supabase anon/publishable key here. Never put `SUPABASE_SERV
 2. Supabase returns a browser session with `access_token`.
 3. The frontend sends the token to `POST /auth/sync`.
 4. The backend verifies the token, syncs `profiles`, reads `user_roles`, and returns actual app access.
-5. Pending, rejected, suspended, or inactive users are blocked by the backend.
+5. The frontend calls `POST /auth/heartbeat` every 30 seconds so the super-admin dashboard can show online/offline users.
+6. Pending, rejected, suspended, or inactive users are blocked by the backend.
 
 ## Google Login
 

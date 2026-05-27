@@ -142,6 +142,7 @@ create table if not exists public.profiles (
   requested_role public.app_role default 'student',
   approval_status public.approval_status not null default 'pending',
   is_active boolean not null default true,
+  last_seen_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -152,6 +153,7 @@ alter table public.profiles add column if not exists auth_provider text;
 alter table public.profiles add column if not exists requested_role public.app_role default 'student';
 alter table public.profiles add column if not exists approval_status public.approval_status not null default 'pending';
 alter table public.profiles add column if not exists is_active boolean not null default true;
+alter table public.profiles add column if not exists last_seen_at timestamptz;
 alter table public.profiles add column if not exists created_at timestamptz not null default now();
 alter table public.profiles add column if not exists updated_at timestamptz not null default now();
 
@@ -837,6 +839,7 @@ select
   p.requested_role,
   p.approval_status,
   p.is_active,
+  p.last_seen_at,
   case
     when bool_or(ur.role = 'super_admin') then 'super_admin'::public.app_role
     when bool_or(ur.role = 'admin') then 'admin'::public.app_role
@@ -866,6 +869,7 @@ group by
   p.requested_role,
   p.approval_status,
   p.is_active,
+  p.last_seen_at,
   u.created_at,
   u.last_sign_in_at;
 

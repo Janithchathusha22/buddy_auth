@@ -11,7 +11,7 @@ The security decision lives in two places:
 ## Tables
 
 - `auth.users`: Supabase login identity.
-- `profiles`: application profile data such as `full_name`, `approval_status`, and `is_active`.
+- `profiles`: application profile data such as `full_name`, `approval_status`, `is_active`, and `last_seen_at`.
 - `user_roles`: many-to-many role assignment for `student`, `admin`, and `super_admin`.
 
 Normal signup receives `student`.
@@ -64,7 +64,12 @@ applies route-level RBAC.
 
 `POST /auth/sync` is used after email/password login or Google login. It verifies
 the Supabase token, copies basic Google/Supabase Auth identity data into
-`profiles`, and ensures the user has the default `student` role.
+`profiles`, updates `last_seen_at`, and ensures the user has the default
+`student` role.
+
+`POST /auth/heartbeat` is called by the frontend while a session is open. It
+updates `profiles.last_seen_at`. The super-admin user list treats users seen in
+the last 60 seconds as `online`; everyone else is `offline`.
 
 ## Supabase Setup
 

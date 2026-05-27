@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth_routes import router as auth_router
 from app.config import get_cors_origins
+from app.presence_routes import router as presence_router
 
 
 app = FastAPI(title="Buddy Auth API")
@@ -16,6 +17,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(presence_router)
 
 
 @app.get("/")

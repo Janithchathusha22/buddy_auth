@@ -18,6 +18,11 @@ class ApprovalStatus(StrEnum):
     SUSPENDED = "suspended"
 
 
+class PresenceStatus(StrEnum):
+    ONLINE = "online"
+    OFFLINE = "offline"
+
+
 ROLE_GRANT_CLOSURE: dict[AppRole, set[AppRole]] = {
     AppRole.STUDENT: {AppRole.STUDENT},
     AppRole.ADMIN: {AppRole.STUDENT, AppRole.ADMIN},
@@ -46,6 +51,8 @@ class CurrentUser(BaseModel):
     requested_role: AppRole | None = None
     approval_status: ApprovalStatus = ApprovalStatus.PENDING
     is_active: bool = True
+    last_seen_at: str | None = None
+    presence_status: PresenceStatus = PresenceStatus.OFFLINE
     roles: set[AppRole] = Field(default_factory=set)
 
     def has_any_role(self, allowed_roles: set[AppRole]) -> bool:
@@ -61,6 +68,8 @@ class UserResponse(BaseModel):
     requested_role: AppRole | None = None
     approval_status: ApprovalStatus
     is_active: bool
+    last_seen_at: str | None = None
+    presence_status: PresenceStatus = PresenceStatus.OFFLINE
     roles: list[AppRole]
 
 
@@ -77,6 +86,12 @@ class RoleListResponse(BaseModel):
     roles: list[AppRole]
 
 
+class PresenceHeartbeatResponse(BaseModel):
+    user_id: UUID
+    last_seen_at: str
+    presence_status: PresenceStatus
+
+
 class UserDirectoryItem(BaseModel):
     id: UUID
     email: str | None = None
@@ -86,6 +101,8 @@ class UserDirectoryItem(BaseModel):
     requested_role: AppRole | None = None
     approval_status: ApprovalStatus
     is_active: bool
+    last_seen_at: str | None = None
+    presence_status: PresenceStatus = PresenceStatus.OFFLINE
     roles: list[AppRole]
     created_at: str | None = None
     last_sign_in_at: str | None = None
